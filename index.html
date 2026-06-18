@@ -100,6 +100,7 @@
       <h1><i class="ti ti-sword" style="color:var(--purple-400);font-size:20px;vertical-align:-2px"></i> Habit Quest RPG</h1>
       <p class="topbar-sub">Rutina diaria gamificada</p>
     </div>
+    <button class="btn" style="font-size:12px;" onclick="document.getElementById('setup-box').style.display='block'"><i class="ti ti-settings"></i> Notion</button>
   </div>
 
   <div class="setup-box" id="setup-box">
@@ -111,6 +112,7 @@
     <input type="text" id="notion-token" placeholder="Token (secret_xxxxx...)" />
     <input type="text" id="notion-page" placeholder="ID de página Notion (xxxxxxxx-xxxx-...)" style="margin-top:6px;" />
     <button class="btn" style="margin-top:8px;font-size:12px;" onclick="saveConfig()"><i class="ti ti-device-floppy"></i> Guardar configuración</button>
+    <button class="btn" style="margin-top:6px;font-size:12px;color:var(--text3);" onclick="resetConfig()"><i class="ti ti-refresh"></i> Limpiar configuración guardada</button>
   </div>
 
   <div class="card">
@@ -249,6 +251,15 @@ function saveDay(){
   save('hq_state',state);
   renderHero();renderTasks();renderRewards();
   showToast('+'+earned+' XP guardados. ¡Sigue adelante!');
+}
+
+function resetConfig(){
+  localStorage.removeItem('hq_notion_token');
+  localStorage.removeItem('hq_notion_page');
+  document.getElementById('notion-token').value='';
+  document.getElementById('notion-page').value='';
+  document.getElementById('setup-box').style.display='block';
+  showToast('Configuración limpiada');
 }
 
 function saveConfig(){
