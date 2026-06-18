@@ -106,11 +106,10 @@
   <div class="setup-box" id="setup-box">
     <strong>Configura tu integración con Notion</strong><br>
     Para sincronizar necesitas un token de integración de Notion.<br>
-    1. Ve a <a href="https://www.notion.so/my-integrations" target="_blank" style="color:var(--amber-400)">notion.so/my-integrations</a> → Nueva integración → copia el token.<br>
-    2. Comparte la página destino con tu integración.<br>
-    3. Pega el token aquí y el ID de la página donde quieres guardar los registros:
+    1. Ve a <a href="https://www.notion.so/my-integrations" target="_blank" style="color:var(--amber-400)">notion.so/my-integrations</a> → tu integración → copia el token.<br>
+    2. Asegúrate de que la integración tenga acceso a la página <strong>Habit Quest RPG</strong> en Notion.<br>
+    3. Pega el token aquí:
     <input type="text" id="notion-token" placeholder="Token (secret_xxxxx...)" />
-    <input type="text" id="notion-page" placeholder="ID de página Notion (xxxxxxxx-xxxx-...)" style="margin-top:6px;" />
     <button class="btn" style="margin-top:8px;font-size:12px;" onclick="saveConfig()"><i class="ti ti-device-floppy"></i> Guardar configuración</button>
     <button class="btn" style="margin-top:6px;font-size:12px;color:var(--text3);" onclick="resetConfig()"><i class="ti ti-refresh"></i> Limpiar configuración guardada</button>
   </div>
@@ -271,54 +270,56 @@ function saveConfig(){
   showToast('Configuración guardada');
 }
 
+const NOTION_DB_ID='85df8ba7-12ce-43a9-99c9-ca30a047c598';
+const LEVEL_NAMES=['1 - Aprendiz','2 - Explorador','3 - Guerrero','4 - Héroe','5 - Campeón','6 - Leyenda'];
+
+async function notionRequest(token, endpoint, body){
+  const r=await fetch('https://notion-proxy.juan-guillermo-congote.workers.dev'+endpoint,{
+    method:'POST',
+    headers:{
+      'Authorization':'Bearer '+token,
+      'Content-Type':'application/json',
+      'Notion-Version':'2022-06-28'
+    },
+    body:JSON.stringify(body)
+  });
+  return r;
+}
+
 async function syncNotion(){
   const token=load('hq_notion_token','');
-  const pageId=load('hq_notion_page','');
   if(!token){showToast('Primero configura tu token de Notion');document.getElementById('setup-box').style.display='block';return;}
   const dot=document.getElementById('notion-dot');
   const lbl=document.getElementById('notion-lbl');
   lbl.textContent='Sincronizando...';dot.className='dot';
 
-  const today=new Date().toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const summary=DAYS.map(d=>{
-    const tasks=Object.entries(state.history[d]||{}).filter(([,v])=>v).map(([k])=>k).join(', ')||'Ninguna';
-    const xp=Object.entries(state.history[d]||{}).filter(([,v])=>v).reduce((s,[k])=>s+(XP[k]||10),0);
-    return {day:d,tasks,xp};
-  });
+  const lvl=getLevel(state.xp);
+  const levelName=LEVEL_NAMES[lvl];
+  const dateStr=new Date().toISOString().split('T')[0];
+  const dayName=DAYS[new Date().getDay()===0?6:new Date().getDay()-1];
+  const tasks=Object.entries(done).filter(([,v])=>v).map(([k])=>k).join(', ')||'Ninguna';
+  const xpGanado=Object.entries(done).filter(([,v])=>v).reduce((s,[k])=>s+(XP[k]||10),0);
 
-  // Normalize page ID to dashed UUID format
-  const raw=pageId.replace(/-/g,'').trim();
-  const pid=raw.length===32
-    ? raw.replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5')
-    : pageId.trim();
-
-  const children=[
-    {object:'block',type:'heading_2',heading_2:{rich_text:[{type:'text',text:{content:'Resumen — '+today}}]}},
-    {object:'block',type:'paragraph',paragraph:{rich_text:[{type:'text',text:{content:'XP Total: '+state.xp+' · Nivel: '+(getLevel(state.xp)+1)+' ('+LEVELS[getLevel(state.xp)].n+') · Racha: '+state.streak+' días'}}]}},
-    {object:'block',type:'divider',divider:{}},
-    ...summary.map(s=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{type:'text',text:{content:s.day+': '+s.tasks+' ('+s.xp+' XP)'}}]}}))
-  ];
   const body={
-    parent:{type:'page_id',page_id:pid},
-    properties:{title:{title:[{type:'text',text:{content:'Habit Quest — Semana '+new Date().toLocaleDateString('es-CO')}}]}},
-    children
+    parent:{type:'database_id',database_id:NOTION_DB_ID},
+    properties:{
+      'Nombre':{title:[{text:{content:dayName+' — '+dateStr}}]},
+      'Fecha':{date:{start:dateStr}},
+      'Día':{select:{name:dayName}},
+      'Actividades completadas':{rich_text:[{text:{content:tasks}}]},
+      'XP ganado':{number:xpGanado},
+      'XP total':{number:state.xp},
+      'Nivel':{select:{name:levelName}}
+    }
   };
 
   try{
-    const r=await fetch('https://notion-proxy.juan-guillermo-congote.workers.dev',{
-      method:'POST',
-      headers:{
-        'Authorization':'Bearer '+token,
-        'Content-Type':'application/json',
-        'Notion-Version':'2022-06-28'
-      },
-      body:JSON.stringify(body)
-    });
+    const r=await notionRequest(token,'',body);
     const data=await r.json();
     if(r.ok&&data.id){
       dot.className='dot on';
-      lbl.textContent='Sincronizado con Notion correctamente';
-      showToast('Registro guardado en Notion');
+      lbl.textContent='Registro guardado en la base de datos de Notion';
+      showToast('Día guardado en Notion');
       document.getElementById('copy-fallback').style.display='none';
     } else {
       dot.className='dot';
