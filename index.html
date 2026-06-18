@@ -254,18 +254,15 @@ function saveDay(){
 
 function resetConfig(){
   localStorage.removeItem('hq_notion_token');
-  localStorage.removeItem('hq_notion_page');
   document.getElementById('notion-token').value='';
-  document.getElementById('notion-page').value='';
   document.getElementById('setup-box').style.display='block';
   showToast('Configuración limpiada');
 }
 
 function saveConfig(){
   const t=document.getElementById('notion-token').value.trim();
-  const p=document.getElementById('notion-page').value.trim();
   if(!t){showToast('Ingresa el token de Notion');return;}
-  save('hq_notion_token',t);save('hq_notion_page',p);
+  save('hq_notion_token',t);
   document.getElementById('setup-box').style.display='none';
   showToast('Configuración guardada');
 }
