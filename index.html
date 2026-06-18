@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Habit Quest RPG</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --surface2: #f1f0ec;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a1a;
+    --text2: #6b6b6b;
+    --text3: #9b9b9b;
+    --purple-50: #EEEDFE; --purple-100: #CECBF6; --purple-400: #7F77DD; --purple-600: #534AB7; --purple-800: #3C3489;
+    --green-50: #EAF3DE; --green-400: #639922; --green-600: #3B6D11; --green-800: #27500A;
+    --amber-50: #FAEEDA; --amber-200: #EF9F27; --amber-400: #BA7517; --amber-800: #633806;
+    --gray-100: #D3D1C7; --gray-600: #5F5E5A; --gray-800: #444441;
+    --blue-50: #E6F1FB; --blue-600: #185FA5; --blue-800: #0C447C;
+    --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a; --surface: #242424; --surface2: #2e2e2e;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.18);
+      --text: #f0f0f0; --text2: #a0a0a0; --text3: #666;
+      --purple-50: #26215C; --purple-100: #3C3489; --purple-400: #AFA9EC; --purple-600: #CECBF6; --purple-800: #EEEDFE;
+      --green-50: #173404; --green-400: #97C459; --green-600: #C0DD97; --green-800: #EAF3DE;
+      --amber-50: #412402; --amber-200: #BA7517; --amber-400: #EF9F27; --amber-800: #FAEEDA;
+      --gray-100: #444441; --gray-600: #B4B2A9; --gray-800: #D3D1C7;
+      --blue-50: #042C53; --blue-600: #85B7EB; --blue-800: #B5D4F4;
+    }
+  }
+  body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 1rem; }
+  .container { max-width: 700px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  h2 { font-size: 16px; font-weight: 500; margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
+  .card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 12px; }
+  .hero-top { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--purple-50); border: 0.5px solid var(--purple-100); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .avatar i { font-size: 26px; color: var(--purple-600); }
+  .hero-name { font-size: 18px; font-weight: 500; margin-bottom: 2px; }
+  .hero-sub { font-size: 12px; color: var(--purple-600); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .stat { background: var(--surface2); border-radius: var(--radius-sm); padding: 10px; text-align: center; }
+  .stat-val { font-size: 22px; font-weight: 500; }
+  .stat-lbl { font-size: 10px; color: var(--text2); margin-top: 2px; }
+  .xp-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-bottom: 5px; }
+  .xp-track { height: 8px; background: var(--surface2); border: 0.5px solid var(--border); border-radius: 99px; overflow: hidden; }
+  .xp-fill { height: 100%; background: var(--purple-400); border-radius: 99px; transition: width 0.4s ease; }
+  .day-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .day-btn { font-size: 11px; padding: 5px 11px; border-radius: var(--radius-sm); border: 0.5px solid var(--border2); background: var(--surface); color: var(--text2); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .day-btn:hover { background: var(--surface2); }
+  .day-btn.active { background: var(--purple-50); border-color: var(--purple-100); color: var(--purple-800); font-weight: 500; }
+  .tasks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .task { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; cursor: pointer; transition: all 0.15s; user-select: none; position: relative; }
+  .task:hover { border-color: var(--border2); }
+  .task.done { background: var(--green-50); border-color: var(--green-400); }
+  .task-check { position: absolute; top: 8px; right: 8px; font-size: 13px; color: var(--green-600); opacity: 0; }
+  .task.done .task-check { opacity: 1; }
+  .task-name { font-size: 12px; font-weight: 500; margin-bottom: 4px; }
+  .task.done .task-name { color: var(--green-800); }
+  .task-xp { font-size: 10px; color: var(--text3); }
+  .task.done .task-xp { color: var(--green-600); }
+  .reward-row { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; margin-bottom: 6px; }
+  .reward-icon { font-size: 18px; color: var(--amber-400); flex-shrink: 0; }
+  .reward-info { flex: 1; min-width: 0; }
+  .reward-name { font-size: 12px; font-weight: 500; }
+  .reward-req { font-size: 10px; color: var(--text3); }
+  .reward-badge { font-size: 10px; padding: 3px 9px; border-radius: 99px; background: var(--amber-50); color: var(--amber-800); flex-shrink: 0; }
+  .reward-badge.unlocked { background: var(--green-50); color: var(--green-800); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  button { font-family: inherit; cursor: pointer; }
+  .btn { padding: 9px 18px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; border: 0.5px solid var(--border2); background: var(--surface); color: var(--text); transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--surface2); }
+  .btn.primary { background: var(--purple-50); border-color: var(--purple-100); color: var(--purple-800); }
+  .btn.primary:hover { background: var(--purple-100); }
+  .notion-status { margin-top: 10px; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text3); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gray-100); flex-shrink: 0; }
+  .dot.on { background: #639922; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--purple-800); color: var(--purple-50); font-size: 13px; padding: 10px 22px; border-radius: var(--radius-sm); opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; z-index: 999; }
+  .toast.show { opacity: 1; }
+  .setup-box { background: var(--amber-50); border: 0.5px solid var(--amber-200); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: var(--amber-800); line-height: 1.6; }
+  .setup-box input { margin-top: 8px; width: 100%; padding: 7px 10px; border-radius: var(--radius-sm); border: 0.5px solid var(--amber-200); background: var(--surface); color: var(--text); font-family: inherit; font-size: 12px; }
+  .setup-box input:focus { outline: none; border-color: var(--amber-400); }
+  .topbar { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+  .topbar-sub { font-size: 12px; color: var(--text3); }
+  hr { border: none; border-top: 0.5px solid var(--border); margin: 2px 0 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="topbar">
+    <div>
+      <h1><i class="ti ti-sword" style="color:var(--purple-400);font-size:20px;vertical-align:-2px"></i> Habit Quest RPG</h1>
+      <p class="topbar-sub">Rutina diaria gamificada</p>
+    </div>
+  </div>
+
+  <div class="setup-box" id="setup-box">
+    <strong>Configura tu integración con Notion</strong><br>
+    Para sincronizar necesitas un token de integración de Notion.<br>
+    1. Ve a <a href="https://www.notion.so/my-integrations" target="_blank" style="color:var(--amber-400)">notion.so/my-integrations</a> → Nueva integración → copia el token.<br>
+    2. Comparte la página destino con tu integración.<br>
+    3. Pega el token aquí y el ID de la página donde quieres guardar los registros:
+    <input type="text" id="notion-token" placeholder="Token (secret_xxxxx...)" />
+    <input type="text" id="notion-page" placeholder="ID de página Notion (xxxxxxxx-xxxx-...)" style="margin-top:6px;" />
+    <button class="btn" style="margin-top:8px;font-size:12px;" onclick="saveConfig()"><i class="ti ti-device-floppy"></i> Guardar configuración</button>
+  </div>
+
+  <div class="card">
+    <div class="hero-top">
+      <div class="avatar"><i class="ti ti-sword"></i></div>
+      <div>
+        <div class="hero-name" id="hero-name">Aventurero</div>
+        <div class="hero-sub" id="hero-sub">Clase: Aprendiz · Nivel <span id="hero-level">1</span></div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-val" id="stat-xp">0</div><div class="stat-lbl"><i class="ti ti-star"></i> XP total</div></div>
+      <div class="stat"><div class="stat-val" id="stat-streak">0</div><div class="stat-lbl"><i class="ti ti-flame"></i> Racha (días)</div></div>
+      <div class="stat"><div class="stat-val" id="stat-done">0</div><div class="stat-lbl"><i class="ti ti-check"></i> Hoy</div></div>
+    </div>
+    <div class="xp-label"><span>XP hacia nivel <span id="next-level">2</span></span><span id="xp-progress">0 / 100</span></div>
+    <div class="xp-track"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
+  </div>
+
+  <div class="card">
+    <h2><i class="ti ti-calendar"></i> Día activo</h2>
+    <div class="day-row" id="day-row"></div>
+    <h2><i class="ti ti-list-check"></i> Actividades</h2>
+    <div class="tasks" id="tasks"></div>
+    <div class="btn-row">
+      <button class="btn primary" onclick="saveDay()"><i class="ti ti-device-floppy"></i> Guardar día</button>
+      <button class="btn" onclick="syncNotion()"><i class="ti ti-brand-notion"></i> Sincronizar con Notion</button>
+    </div>
+    <div class="notion-status"><span class="dot" id="notion-dot"></span><span id="notion-lbl">No sincronizado aún</span></div>
+    <div id="copy-fallback" style="display:none;margin-top:10px;">
+      <button class="btn" style="font-size:12px;" onclick="copyResumen()"><i class="ti ti-copy"></i> Copiar resumen para pegar en Notion</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><i class="ti ti-trophy"></i> Recompensas</h2>
+    <div id="rewards"></div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DAYS = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const TASKS = {
+  'Lunes':     ['Anime','Piano (30min)','Leer','Ejercicio casa','Duolingo','Juego móvil'],
+  'Martes':    ['Gimnasio (2h)','Leer','Ejercicio casa','Duolingo','Juego móvil'],
+  'Miércoles': ['Gimnasio (2h)','Anime','Ejercicio casa','Duolingo','Juego móvil'],
+  'Jueves':    ['Gimnasio (2h)','Leer (15min)','Piano (15min)','Ejercicio casa','Duolingo','Juego móvil'],
+  'Viernes':   ['Gimnasio (2h)','Leer (15min)','Piano (15min)','Ejercicio casa','Duolingo','Juego móvil'],
+  'Sábado':    ['Sesión RPG (2h)','Anime','Piano (30min)','Leer','Ejercicio casa','Duolingo','Juego móvil'],
+  'Domingo':   ['Revisión semanal RPG','Anime','Piano (30min)','Leer','Ejercicio casa','Duolingo','Juego móvil'],
+};
+const XP = {
+  'Gimnasio (2h)':40,'Leer':15,'Leer (15min)':8,'Anime':10,
+  'Piano (30min)':20,'Piano (15min)':10,'Ejercicio casa':15,
+  'Duolingo':10,'Juego móvil':10,'Sesión RPG (2h)':30,'Revisión semanal RPG':30,
+};
+const LEVELS = [
+  {n:'Aprendiz',xp:0},{n:'Explorador',xp:100},{n:'Guerrero',xp:250},
+  {n:'Héroe',xp:500},{n:'Campeón',xp:900},{n:'Leyenda',xp:1500},
+];
+const REWARDS = [
+  {name:'Sesión extra de PC',req:100,icon:'ti-device-desktop'},
+  {name:'Episodio bonus de anime',req:200,icon:'ti-device-tv'},
+  {name:'Día libre de ejercicio en casa',req:350,icon:'ti-home'},
+  {name:'Compra de juego nuevo',req:500,icon:'ti-shopping-cart'},
+  {name:'Fin de semana especial',req:900,icon:'ti-star'},
+];
+
+function load(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch{return def;}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+
+let state = load('hq_state',{xp:0,streak:0,lastDay:null,history:{}});
+let done = {};
+let activeDay = DAYS[new Date().getDay()===0?6:new Date().getDay()-1];
+
+function getLevel(xp){let l=0;for(let i=0;i<LEVELS.length;i++){if(xp>=LEVELS[i].xp)l=i;}return l;}
+
+function renderHero(){
+  const l=getLevel(state.xp);
+  const curr=LEVELS[l],next=LEVELS[Math.min(l+1,LEVELS.length-1)];
+  const pct=l<LEVELS.length-1?Math.round(((state.xp-curr.xp)/(next.xp-curr.xp))*100):100;
+  document.getElementById('hero-sub').innerHTML='Clase: '+curr.n+' · Nivel <span id="hero-level">'+(l+1)+'</span>';
+  document.getElementById('stat-xp').textContent=state.xp;
+  document.getElementById('stat-streak').textContent=state.streak;
+  document.getElementById('stat-done').textContent=Object.values(done).filter(Boolean).length;
+  document.getElementById('next-level').textContent=l+2;
+  document.getElementById('xp-progress').textContent=(state.xp-curr.xp)+' / '+(next.xp-curr.xp);
+  document.getElementById('xp-fill').style.width=pct+'%';
+}
+
+function renderDays(){
+  const el=document.getElementById('day-row');
+  el.innerHTML='';
+  DAYS.forEach(d=>{
+    const b=document.createElement('button');
+    b.className='day-btn'+(d===activeDay?' active':'');
+    b.textContent=d;
+    b.onclick=()=>{activeDay=d;done={...(state.history[d]||{})};renderDays();renderTasks();renderHero();};
+    el.appendChild(b);
+  });
+}
+
+function renderTasks(){
+  const el=document.getElementById('tasks');
+  el.innerHTML='';
+  (TASKS[activeDay]||[]).forEach(t=>{
+    const isDone=!!done[t];
+    const c=document.createElement('div');
+    c.className='task'+(isDone?' done':'');
+    c.innerHTML=`<i class="ti ti-check task-check"></i><div class="task-name">${t}</div><div class="task-xp">${XP[t]||10} XP</div>`;
+    c.onclick=()=>{done[t]=!done[t];state.history[activeDay]={...done};save('hq_state',state);renderTasks();renderHero();};
+    el.appendChild(c);
+  });
+}
+
+function renderRewards(){
+  const el=document.getElementById('rewards');
+  el.innerHTML='';
+  REWARDS.forEach(r=>{
+    const u=state.xp>=r.req;
+    const d=document.createElement('div');
+    d.className='reward-row';
+    d.innerHTML=`<i class="ti ${r.icon} reward-icon"></i><div class="reward-info"><div class="reward-name">${r.name}</div><div class="reward-req">${r.req} XP necesarios</div></div><span class="reward-badge ${u?'unlocked':''}">${u?'Desbloqueado':'Bloqueado'}</span>`;
+    el.appendChild(d);
+  });
+}
+
+function saveDay(){
+  const earned=Object.entries(done).filter(([,v])=>v).reduce((s,[k])=>s+(XP[k]||10),0);
+  if(earned===0){showToast('Marca al menos una actividad primero');return;}
+  state.xp+=earned;
+  if(state.lastDay!==activeDay){state.streak++;state.lastDay=activeDay;}
+  done={};state.history[activeDay]={};
+  save('hq_state',state);
+  renderHero();renderTasks();renderRewards();
+  showToast('+'+earned+' XP guardados. ¡Sigue adelante!');
+}
+
+function saveConfig(){
+  const t=document.getElementById('notion-token').value.trim();
+  const p=document.getElementById('notion-page').value.trim();
+  if(!t){showToast('Ingresa el token de Notion');return;}
+  save('hq_notion_token',t);save('hq_notion_page',p);
+  document.getElementById('setup-box').style.display='none';
+  showToast('Configuración guardada');
+}
+
+async function syncNotion(){
+  const token=load('hq_notion_token','');
+  const pageId=load('hq_notion_page','');
+  if(!token){showToast('Primero configura tu token de Notion');document.getElementById('setup-box').style.display='block';return;}
+  const dot=document.getElementById('notion-dot');
+  const lbl=document.getElementById('notion-lbl');
+  lbl.textContent='Sincronizando...';dot.className='dot';
+  const today=new Date().toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const summary=DAYS.map(d=>{
+    const tasks=Object.entries(state.history[d]||{}).filter(([,v])=>v).map(([k])=>k).join(', ')||'Ninguna';
+    const xp=Object.entries(state.history[d]||{}).filter(([,v])=>v).reduce((s,[k])=>s+(XP[k]||10),0);
+    return {day:d,tasks,xp};
+  });
+  const children=[
+    {object:'block',type:'heading_2',heading_2:{rich_text:[{type:'text',text:{content:'Resumen — '+today}}]}},
+    {object:'block',type:'paragraph',paragraph:{rich_text:[{type:'text',text:{content:'XP Total: '+state.xp+' · Nivel: '+(getLevel(state.xp)+1)+' ('+LEVELS[getLevel(state.xp)].n+') · Racha: '+state.streak+' días'}}]}},
+    {object:'block',type:'divider',divider:{}},
+    ...summary.map(s=>({object:'block',type:'bulleted_list_item',bulleted_list_item:{rich_text:[{type:'text',text:{content:s.day+': '+s.tasks+' ('+s.xp+' XP)'}}]}}))
+  ];
+  const pid=pageId.replace(/-/g,'').replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/,'$1-$2-$3-$4-$5');
+  const body={
+    parent:{type:'page_id',page_id:pid},
+    properties:{title:{title:[{type:'text',text:{content:'Habit Quest — Semana '+new Date().toLocaleDateString('es-CO')}}]}},
+    children
+  };
+  try{
+    const notionUrl='https://api.notion.com/v1/pages';
+    const reqPayload={
+      method:'POST',
+      headers:{
+        'Authorization':'Bearer '+token,
+        'Content-Type':'application/json',
+        'Notion-Version':'2022-06-28',
+        'x-requested-with':'XMLHttpRequest'
+      },
+      body:JSON.stringify(body)
+    };
+
+    let r, data, usedProxy='';
+
+    const proxies=[
+      async ()=>{
+        usedProxy='workers.dev';
+        const url='https://notion-cors-proxy.deno.dev/?url='+encodeURIComponent(notionUrl);
+        return fetch(url,reqPayload);
+      },
+      async ()=>{
+        usedProxy='thingproxy';
+        const url='https://thingproxy.freeboard.io/fetch/'+notionUrl;
+        return fetch(url,reqPayload);
+      },
+      async ()=>{
+        usedProxy='allorigins-post';
+        const url='https://api.allorigins.win/post';
+        return fetch(url,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            url:notionUrl,
+            method:'POST',
+            headers:reqPayload.headers,
+            body:body
+          })
+        });
+      }
+    ];
+
+    let success=false;
+    for(const tryProxy of proxies){
+      try{
+        r=await Promise.race([tryProxy(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000))]);
+        data=await r.json();
+        if(r.ok&&data.id){success=true;break;}
+        if(data.contents){
+          const inner=JSON.parse(data.contents);
+          if(inner.id){data=inner;success=true;break;}
+        }
+      }catch(ex){console.warn('proxy failed:',usedProxy,ex);}
+    }
+
+    if(success){
+      dot.className='dot on';
+      lbl.textContent='Sincronizado con Notion correctamente';
+      showToast('Registro guardado en Notion');
+    } else {
+      dot.className='dot';
+      const msg=data?.message||data?.code||'';
+      lbl.textContent=msg?'Error Notion: '+msg:'No se pudo conectar. Usa el botón "Copiar resumen" y pégalo en Notion manualmente.';
+      document.getElementById('copy-fallback').style.display='block';
+    }
+  }catch(e){
+    dot.className='dot';
+    lbl.textContent='Error de red. Usa "Copiar resumen" como alternativa.';
+    document.getElementById('copy-fallback').style.display='block';
+    console.error(e);
+  }
+}
+
+function copyResumen(){
+  const today=new Date().toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const lvl=getLevel(state.xp);
+  let txt='# Habit Quest — Semana '+new Date().toLocaleDateString('es-CO')+'\n\n';
+  txt+='Fecha: '+today+'\n';
+  txt+='XP Total: '+state.xp+' | Nivel: '+(lvl+1)+' ('+LEVELS[lvl].n+') | Racha: '+state.streak+' días\n\n';
+  txt+='## Detalle por día\n';
+  DAYS.forEach(d=>{
+    const tasks=Object.entries(state.history[d]||{}).filter(([,v])=>v).map(([k])=>k).join(', ')||'Ninguna';
+    const xp=Object.entries(state.history[d]||{}).filter(([,v])=>v).reduce((s,[k])=>s+(XP[k]||10),0);
+    txt+='\n**'+d+':** '+tasks+' ('+xp+' XP)';
+  });
+  navigator.clipboard.writeText(txt).then(()=>showToast('Resumen copiado. Pégalo en Notion con Ctrl+V')).catch(()=>{
+    const ta=document.createElement('textarea');
+    ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    showToast('Resumen copiado. Pégalo en Notion con Ctrl+V');
+  });
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+const cfg=load('hq_notion_token','');
+if(cfg)document.getElementById('setup-box').style.display='none';
+done={...(state.history[activeDay]||{})};
+renderDays();renderTasks();renderHero();renderRewards();
+</script>
+</body>
+</html>
