@@ -294,7 +294,7 @@ async function syncNotion(){
   };
 
   try{
-    const r=await fetch('https://api.notion.com/v1/pages',{
+    const r=await fetch('https://notion-proxy.juan-guillermo-congote.workers.dev',{
       method:'POST',
       headers:{
         'Authorization':'Bearer '+token,
