@@ -249,10 +249,11 @@ function saveDay(){
   if(earned===0){showToast('Marca al menos una actividad primero');return;}
   state.xp+=earned;
   if(state.lastDay!==activeDay){state.streak++;state.lastDay=activeDay;}
-  done={};state.history[activeDay]={};
+  state.history[activeDay]={...done};
   save('hq_state',state);
   renderHero();renderTasks();renderRewards();
-  showToast('+'+earned+' XP guardados. ¡Sigue adelante!');
+  showToast('+'+earned+' XP guardados. Sincronizando con Notion...');
+  syncNotion();
 }
 
 function resetProgress(){
@@ -304,15 +305,20 @@ async function syncNotion(){
 
   const lvl=getLevel(state.xp);
   const levelName=LEVEL_NAMES[lvl];
-  const dateStr=new Date().toISOString().split('T')[0];
-  const dayName=DAYS[new Date().getDay()===0?6:new Date().getDay()-1];
-  const tasks=Object.entries(done).filter(([,v])=>v).map(([k])=>k).join(', ')||'Ninguna';
-  const xpGanado=Object.entries(done).filter(([,v])=>v).reduce((s,[k])=>s+(XP[k]||10),0);
+  const now=new Date();
+  const dateStr=now.toISOString().split('T')[0];
+  const timeStr=now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  const dayName=activeDay;
+
+  // Lee del historial guardado, no del estado actual de done
+  const historial=state.history[dayName]||{};
+  const tasks=Object.entries(historial).filter(([,v])=>v).map(([k])=>k).join(', ')||'Ninguna';
+  const xpGanado=Object.entries(historial).filter(([,v])=>v).reduce((s,[k])=>s+(XP[k]||10),0);
 
   const body={
     parent:{type:'database_id',database_id:NOTION_DB_ID},
     properties:{
-      'Nombre':{title:[{text:{content:dayName+' — '+dateStr}}]},
+      'Nombre':{title:[{text:{content:dayName+' — '+dateStr+' '+timeStr}}]},
       'Fecha':{date:{start:dateStr}},
       'Día':{select:{name:dayName}},
       'Actividades completadas':{rich_text:[{text:{content:tasks}}]},
@@ -327,7 +333,7 @@ async function syncNotion(){
     const data=await r.json();
     if(r.ok&&data.id){
       dot.className='dot on';
-      lbl.textContent='Registro guardado en la base de datos de Notion';
+      lbl.textContent='Registro guardado en Notion correctamente';
       showToast('Día guardado en Notion');
       document.getElementById('copy-fallback').style.display='none';
     } else {
