@@ -154,6 +154,11 @@
     <div id="rewards"></div>
   </div>
 
+  <div class="card">
+    <h2><i class="ti ti-stairs-up"></i> Niveles</h2>
+    <div id="levels"></div>
+  </div>
+
 </div>
 <div class="toast" id="toast"></div>
 
@@ -192,7 +197,12 @@ let state = load('hq_state',{xp:0,streak:0,lastDay:null,history:{}});
 let done = {};
 let activeDay = DAYS[new Date().getDay()===0?6:new Date().getDay()-1];
 
-function getLevel(xp){let l=0;for(let i=0;i<LEVELS.length;i++){if(xp>=LEVELS[i].xp)l=i;}return l;}
+function getLevel(xp){
+  const list=state.notionLevels||LEVELS.map((l,i)=>({xp:l.xp,num:i+1}));
+  let l=0;
+  for(let i=0;i<list.length;i++){if(xp>=list[i].xp)l=i;}
+  return l;
+}
 
 function renderHero(){
   const l=getLevel(state.xp);
@@ -232,16 +242,164 @@ function renderTasks(){
   });
 }
 
+function renderLevels(){
+  const el=document.getElementById('levels-list');
+  if(!el) return;
+  el.innerHTML='';
+  const currentXp=state.xp;
+  const list=state.notionLevels||LEVELS.map((l,i)=>({name:l.n,num:i+1,xp:l.xp,icon:'⭐',desc:''}));
+  list.forEach((l,i)=>{
+    const next=list[i+1];
+    const isActive=currentXp>=l.xp&&(!next||currentXp<next.xp);
+    const done=next&&currentXp>=next.xp;
+    const row=document.createElement('div');
+    row.style=`display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);margin-bottom:6px;border:0.5px solid ${isActive?'var(--purple-100)':done?'var(--green-400)':'var(--border)'};background:${isActive?'var(--purple-50)':done?'var(--green-50)':'var(--surface)'};`;
+    row.innerHTML=`
+      <span style="font-size:18px">${l.icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;color:${isActive?'var(--purple-800)':done?'var(--green-800)':'var(--text)'}">${l.num?'Nivel '+l.num+' — ':'' }${l.name}</div>
+        <div style="font-size:10px;color:var(--text3)">${l.xp} XP requeridos${l.desc?' · '+l.desc:''}</div>
+      </div>
+      <span style="font-size:10px;padding:2px 8px;border-radius:99px;background:${isActive?'var(--purple-100)':done?'var(--green-50)':'var(--surface2)'};color:${isActive?'var(--purple-800)':done?'var(--green-800)':'var(--text3)'}">${isActive?'Actual':done?'Completado':'Bloqueado'}</span>
+    `;
+    el.appendChild(row);
+  });
+
+  // Formulario agregar nivel
+  const form=document.createElement('div');
+  form.style='margin-top:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:0.5px solid var(--border);';
+  form.innerHTML=`
+    <div style="font-size:12px;font-weight:500;margin-bottom:8px;color:var(--text2)"><i class="ti ti-plus"></i> Agregar nivel</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
+      <input id="lvl-name" placeholder="Nombre" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+      <input id="lvl-num" type="number" placeholder="Número" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+      <input id="lvl-xp" type="number" placeholder="XP requerido" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:6px;margin-bottom:8px;">
+      <input id="lvl-icon" placeholder="Icono (emoji)" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+      <input id="lvl-desc" placeholder="Descripción (opcional)" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+    </div>
+    <button class="btn primary" style="font-size:12px;" onclick="addLevel()"><i class="ti ti-plus"></i> Guardar nivel</button>
+  `;
+  el.appendChild(form);
+}
+
+async function addLevel(){
+  const name=document.getElementById('lvl-name').value.trim();
+  const num=parseInt(document.getElementById('lvl-num').value)||0;
+  const xp=parseInt(document.getElementById('lvl-xp').value)||0;
+  const icon=document.getElementById('lvl-icon').value.trim()||'⭐';
+  const desc=document.getElementById('lvl-desc').value.trim();
+  if(!name||!xp){showToast('Ingresa nombre y XP requerido');return;}
+  const token=load('hq_notion_token','');
+  if(!token){showToast('Configura el token de Notion primero');return;}
+  showToast('Guardando nivel...');
+  await addLevelToNotion(token,{name,num,xp,icon,desc});
+  const levels=await loadLevelsFromNotion(token);
+  if(levels){state.notionLevels=levels;save('hq_state',state);}
+  renderLevels();
+  showToast('Nivel agregado en Notion');
+}
+
+function renderLevels(){
+  const el=document.getElementById('levels');
+  el.innerHTML='';
+  const list=state.notionLevels||LEVELS.map((l,i)=>({n:l.n,xp:l.xp,num:i+1,desc:''}));
+  const currentLvl=getLevel(state.xp);
+  list.forEach((l,i)=>{
+    const isCurrent=i===currentLvl;
+    const isPast=i<currentLvl;
+    const d=document.createElement('div');
+    d.className='reward-row';
+    d.style=isCurrent?'border-color:var(--purple-400);background:var(--purple-50);':'';
+    d.innerHTML=`
+      <span style="font-size:18px;flex-shrink:0">${isPast?'✅':isCurrent?'⚔️':'🔒'}</span>
+      <div class="reward-info">
+        <div class="reward-name">${l.n?'Nivel '+l.num+' — '+l.n:'Nivel '+l.num}</div>
+        <div class="reward-req">${l.xp} XP requerido${l.desc?' · '+l.desc:''}</div>
+      </div>
+      <span class="reward-badge ${isPast?'unlocked':isCurrent?'unlocked':''}" style="${isCurrent?'background:var(--purple-50);color:var(--purple-800);':''}">${isPast?'Superado':isCurrent?'Actual':'Bloqueado'}</span>
+    `;
+    el.appendChild(d);
+  });
+
+  // Formulario para agregar nivel
+  const form=document.createElement('div');
+  form.style='margin-top:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:0.5px solid var(--border);';
+  form.innerHTML=`
+    <div style="font-size:12px;font-weight:500;margin-bottom:8px;color:var(--text2)"><i class="ti ti-plus"></i> Agregar nivel</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
+      <input id="lvl-num" type="number" placeholder="Nº nivel" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+      <input id="lvl-clase" placeholder="Clase (ej: Maestro)" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+      <input id="lvl-xp" type="number" placeholder="XP requerido" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+    </div>
+    <input id="lvl-desc" placeholder="Descripción (opcional)" style="width:100%;padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;margin-bottom:8px;">
+    <button class="btn primary" style="font-size:12px;" onclick="addLevel()"><i class="ti ti-plus"></i> Guardar nivel</button>
+  `;
+  el.appendChild(form);
+}
+
+async function addLevel(){
+  const num=parseInt(document.getElementById('lvl-num').value)||0;
+  const clase=document.getElementById('lvl-clase').value.trim();
+  const xp=parseInt(document.getElementById('lvl-xp').value)||0;
+  const desc=document.getElementById('lvl-desc').value.trim();
+  if(!num||!clase||xp===undefined){showToast('Ingresa número, clase y XP requerido');return;}
+  const token=load('hq_notion_token','');
+  if(!token){showToast('Configura el token de Notion primero');return;}
+  showToast('Guardando nivel...');
+  await addLevelToNotion(token,{num,clase,xp,desc});
+  const levels=await loadLevelsFromNotion(token);
+  if(levels){state.notionLevels=levels;save('hq_state',state);}
+  renderLevels();
+  showToast('Nivel agregado en Notion');
+}
+
 function renderRewards(){
   const el=document.getElementById('rewards');
   el.innerHTML='';
-  REWARDS.forEach(r=>{
+  const list=state.notionRewards||REWARDS.map(r=>({name:r.name,req:r.req,icon:r.icon,estado:'Bloqueada',desc:''}));
+  list.forEach(r=>{
     const u=state.xp>=r.req;
+    const estado=u?(r.estado==='Canjeada'?'Canjeada':'Desbloqueada'):'Bloqueada';
     const d=document.createElement('div');
     d.className='reward-row';
-    d.innerHTML=`<i class="ti ${r.icon} reward-icon"></i><div class="reward-info"><div class="reward-name">${r.name}</div><div class="reward-req">${r.req} XP necesarios</div></div><span class="reward-badge ${u?'unlocked':''}">${u?'Desbloqueado':'Bloqueado'}</span>`;
+    d.innerHTML=`<span style="font-size:18px;flex-shrink:0">${r.icon}</span><div class="reward-info"><div class="reward-name">${r.name}</div><div class="reward-req">${r.req} XP necesarios${r.desc?' · '+r.desc:''}</div></div><span class="reward-badge ${u?'unlocked':''}">${estado}</span>`;
     el.appendChild(d);
   });
+
+  // Formulario para agregar nueva recompensa
+  const form=document.createElement('div');
+  form.style='margin-top:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:0.5px solid var(--border);';
+  form.innerHTML=`
+    <div style="font-size:12px;font-weight:500;margin-bottom:8px;color:var(--text2)"><i class="ti ti-plus"></i> Agregar recompensa</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+      <input id="rew-name" placeholder="Nombre" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+      <input id="rew-xp" type="number" placeholder="XP necesario" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:6px;margin-bottom:8px;">
+      <input id="rew-icon" placeholder="Icono (emoji)" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+      <input id="rew-desc" placeholder="Descripción (opcional)" style="padding:6px 8px;border-radius:var(--radius-sm);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-family:inherit;font-size:12px;">
+    </div>
+    <button class="btn primary" style="font-size:12px;" onclick="addReward()"><i class="ti ti-plus"></i> Guardar recompensa</button>
+  `;
+  el.appendChild(form);
+}
+
+async function addReward(){
+  const name=document.getElementById('rew-name').value.trim();
+  const req=parseInt(document.getElementById('rew-xp').value)||0;
+  const icon=document.getElementById('rew-icon').value.trim()||'🏆';
+  const desc=document.getElementById('rew-desc').value.trim();
+  if(!name||!req){showToast('Ingresa nombre y XP necesario');return;}
+  const token=load('hq_notion_token','');
+  if(!token){showToast('Configura el token de Notion primero');return;}
+  showToast('Guardando recompensa...');
+  await addRewardToNotion(token,{name,req,icon,desc});
+  const rewards=await loadRewardsFromNotion(token);
+  if(rewards){state.notionRewards=rewards;save('hq_state',state);}
+  renderRewards();
+  showToast('Recompensa agregada en Notion');
 }
 
 function saveDay(){
@@ -281,11 +439,15 @@ function saveConfig(){
 }
 
 const NOTION_DB_ID='38348439-131f-8042-88b8-f6d27babd3d3';
+const NOTION_HERO_DB='1ed20396-cafc-43bd-809e-3bfbe5997590';
+const NOTION_REWARDS_DB='a4faa518-a558-4b30-ab12-8fb8b47195d2';
+const NOTION_LEVELS_DB='8212ac12-1ec5-459a-9960-eea8b5762887';
 const LEVEL_NAMES=['1 - Aprendiz','2 - Explorador','3 - Guerrero','4 - Héroe','5 - Campeón','6 - Leyenda'];
+let notionHeroPageId=load('hq_hero_page_id','');
 
-async function notionRequest(token, endpoint, body){
+async function notionRequest(token, endpoint, body, method='POST'){
   const r=await fetch('https://notion-proxy.juan-guillermo-congote.workers.dev'+endpoint,{
-    method:'POST',
+    method,
     headers:{
       'Authorization':'Bearer '+token,
       'Content-Type':'application/json',
@@ -294,6 +456,131 @@ async function notionRequest(token, endpoint, body){
     body:JSON.stringify(body)
   });
   return r;
+}
+
+async function updateHeroSummary(token){
+  const lvl=getLevel(state.xp);
+  const levelName=LEVEL_NAMES[lvl];
+  const dateStr=new Date().toISOString().split('T')[0];
+  const props={
+    'Nombre':{title:[{text:{content:'Mi Héroe'}}]},
+    'XP Total':{number:state.xp},
+    'Nivel':{select:{name:levelName}},
+    'Racha (días)':{number:state.streak},
+    'Última actualización':{date:{start:dateStr}}
+  };
+  if(notionHeroPageId){
+    // Actualizar página existente via PATCH
+    await fetch('https://notion-proxy.juan-guillermo-congote.workers.dev/patch/'+notionHeroPageId,{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Notion-Version':'2022-06-28'},
+      body:JSON.stringify({properties:props})
+    });
+  } else {
+    // Crear primera vez
+    const r=await notionRequest(token,'',{
+      parent:{type:'database_id',database_id:NOTION_HERO_DB},
+      properties:props
+    });
+    const data=await r.json();
+    if(data.id){
+      notionHeroPageId=data.id;
+      save('hq_hero_page_id',notionHeroPageId);
+    }
+  }
+}
+
+async function loadRewardsFromNotion(token){
+  const r=await fetch('https://notion-proxy.juan-guillermo-congote.workers.dev/query/'+NOTION_REWARDS_DB,{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Notion-Version':'2022-06-28'},
+    body:JSON.stringify({sorts:[{property:'XP necesario',direction:'ascending'}]})
+  });
+  const data=await r.json();
+  if(!data.results) return null;
+  return data.results.map(p=>({
+    id: p.id,
+    name: p.properties['Recompensa']?.title?.[0]?.plain_text||'',
+    req: p.properties['XP necesario']?.number||0,
+    icon: p.properties['Icono']?.rich_text?.[0]?.plain_text||'🏆',
+    estado: p.properties['Estado']?.select?.name||'Bloqueada',
+    desc: p.properties['Descripción']?.rich_text?.[0]?.plain_text||''
+  }));
+}
+
+async function addRewardToNotion(token, reward){
+  const r=await notionRequest(token,'',{
+    parent:{type:'database_id',database_id:NOTION_REWARDS_DB},
+    properties:{
+      'Recompensa':{title:[{text:{content:reward.name}}]},
+      'XP necesario':{number:reward.req},
+      'Icono':{rich_text:[{text:{content:reward.icon}}]},
+      'Estado':{select:{name:'Bloqueada'}},
+      'Descripción':{rich_text:[{text:{content:reward.desc}}]}
+    }
+  });
+  return r.json();
+}
+
+async function loadLevelsFromNotion(token){
+  const r=await fetch('https://notion-proxy.juan-guillermo-congote.workers.dev/query/'+NOTION_LEVELS_DB,{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Notion-Version':'2022-06-28'},
+    body:JSON.stringify({sorts:[{property:'Número',direction:'ascending'}]})
+  });
+  const data=await r.json();
+  if(!data.results) return null;
+  return data.results.map(p=>({
+    id: p.id,
+    name: p.properties['Nivel']?.title?.[0]?.plain_text||'',
+    num: p.properties['Número']?.number||0,
+    xp: p.properties['XP requerido']?.number||0,
+    icon: p.properties['Icono']?.rich_text?.[0]?.plain_text||'⭐',
+    desc: p.properties['Descripción']?.rich_text?.[0]?.plain_text||''
+  }));
+}
+
+async function addLevelToNotion(token, level){
+  const r=await notionRequest(token,'',{
+    parent:{type:'database_id',database_id:NOTION_LEVELS_DB},
+    properties:{
+      'Nivel':{title:[{text:{content:level.name}}]},
+      'Número':{number:level.num},
+      'XP requerido':{number:level.xp},
+      'Icono':{rich_text:[{text:{content:level.icon}}]},
+      'Descripción':{rich_text:[{text:{content:level.desc}}]}
+    }
+  });
+  return r.json();
+}
+
+async function loadLevelsFromNotion(token){
+  const r=await fetch('https://notion-proxy.juan-guillermo-congote.workers.dev/query/'+NOTION_LEVELS_DB,{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Notion-Version':'2022-06-28'},
+    body:JSON.stringify({sorts:[{property:'Número',direction:'ascending'}]})
+  });
+  const data=await r.json();
+  if(!data.results) return null;
+  return data.results.map(p=>({
+    n: p.properties['Clase']?.rich_text?.[0]?.plain_text||'',
+    xp: p.properties['XP requerido']?.number||0,
+    num: p.properties['Número']?.number||0,
+    desc: p.properties['Descripción']?.rich_text?.[0]?.plain_text||''
+  })).sort((a,b)=>a.num-b.num);
+}
+
+async function addLevelToNotion(token, level){
+  return notionRequest(token,'',{
+    parent:{type:'database_id',database_id:NOTION_LEVELS_DB},
+    properties:{
+      'Nivel':{title:[{text:{content:'Nivel '+level.num}}]},
+      'Número':{number:level.num},
+      'Clase':{rich_text:[{text:{content:level.clase}}]},
+      'XP requerido':{number:level.xp},
+      'Descripción':{rich_text:[{text:{content:level.desc}}]}
+    }
+  });
 }
 
 async function syncNotion(){
@@ -309,39 +596,49 @@ async function syncNotion(){
   const dateStr=now.toISOString().split('T')[0];
   const timeStr=now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   const dayName=activeDay;
-
-  // Lee del historial guardado, no del estado actual de done
   const historial=state.history[dayName]||{};
   const tasks=Object.entries(historial).filter(([,v])=>v).map(([k])=>k).join(', ')||'Ninguna';
   const xpGanado=Object.entries(historial).filter(([,v])=>v).reduce((s,[k])=>s+(XP[k]||10),0);
 
-  const body={
-    parent:{type:'database_id',database_id:NOTION_DB_ID},
-    properties:{
-      'Nombre':{title:[{text:{content:dayName+' — '+dateStr+' '+timeStr}}]},
-      'Fecha':{date:{start:dateStr}},
-      'Día':{select:{name:dayName}},
-      'Actividades completadas':{rich_text:[{text:{content:tasks}}]},
-      'XP ganado':{number:xpGanado},
-      'XP total':{number:state.xp},
-      'Nivel':{select:{name:levelName}}
-    }
-  };
-
   try{
-    const r=await notionRequest(token,'',body);
+    // 1. Guardar registro del día
+    const r=await notionRequest(token,'',{
+      parent:{type:'database_id',database_id:NOTION_DB_ID},
+      properties:{
+        'Nombre':{title:[{text:{content:dayName+' — '+dateStr+' '+timeStr}}]},
+        'Fecha':{date:{start:dateStr}},
+        'Día':{select:{name:dayName}},
+        'Actividades completadas':{rich_text:[{text:{content:tasks}}]},
+        'XP ganado':{number:xpGanado},
+        'XP total':{number:state.xp},
+        'Nivel':{select:{name:levelName}}
+      }
+    });
     const data=await r.json();
-    if(r.ok&&data.id){
-      dot.className='dot on';
-      lbl.textContent='Registro guardado en Notion correctamente';
-      showToast('Día guardado en Notion');
-      document.getElementById('copy-fallback').style.display='none';
-    } else {
+    if(!r.ok){
       dot.className='dot';
       lbl.textContent='Error Notion: '+(data.message||data.code||'verifica token y permisos');
       document.getElementById('copy-fallback').style.display='block';
-      console.error('Notion error:',data);
+      return;
     }
+
+    // 2. Actualizar resumen del héroe
+    await updateHeroSummary(token);
+
+    // 3. Cargar recompensas y niveles desde Notion
+    const rewards=await loadRewardsFromNotion(token);
+    if(rewards){state.notionRewards=rewards;}
+    const levels=await loadLevelsFromNotion(token);
+    if(levels){state.notionLevels=levels;}
+    save('hq_state',state);
+    renderRewards();
+    renderLevels();
+
+    dot.className='dot on';
+    lbl.textContent='Sincronizado con Notion correctamente';
+    showToast('Día guardado y Notion actualizado');
+    document.getElementById('copy-fallback').style.display='none';
+
   }catch(e){
     dot.className='dot';
     lbl.textContent='Error de red: '+e.message;
@@ -378,7 +675,7 @@ function showToast(msg){
 const cfg=load('hq_notion_token','');
 if(cfg)document.getElementById('setup-box').style.display='none';
 done={...(state.history[activeDay]||{})};
-renderDays();renderTasks();renderHero();renderRewards();
+renderDays();renderTasks();renderHero();renderRewards();renderLevels();
 </script>
 </body>
 </html>
